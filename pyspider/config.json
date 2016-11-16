@@ -1,0 +1,17 @@
+{
+  "taskdb": "mysql+taskdb://pyspider:hn811013@127.0.0.1:3306/taskdb",
+  "projectdb": "mysql+projectdb://pyspider:hn811013@127.0.0.1:3306/projectdb",
+  "resultdb": "mysql+resultdb://pyspider:hn811013@127.0.0.1:3306/resultdb",
+  "message_queue": "redis://127.0.0.1:6379/db",
+  "phantomjs-proxy": "127.0.0.1:25555",
+  "scheduler" : {
+    "xmlrpc-host": "0.0.0.0",
+    "delete-time": 3600
+  },
+  "webui": {
+    "port": 5005,
+    "username": "foxstarx",
+    "password": "hn811013",
+    "need-auth": true
+  }
+}

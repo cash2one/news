@@ -1,0 +1,36 @@
+<!-- 
+
+	@Author: huangnan
+	@Date:   2016-10-20 20:39:24
+	@Last Modified by:   huangnan
+	@Last Modified time: 2016-11-08 16:08:36
+	@E-mail: foxstarx@gmail.com 
+
+-->
+
+
+
+<a class="list-group-item" href="detail/{{ i.uri }}">
+	<div class="panel panel-default">
+	    <div class="panel-body">
+			<h4>{{ i.title }}</h4>
+			<div class="row">
+				<div class="col-xs-4">
+					<img src="{{ i.thumbnail_url }}{{ i.uri }}/thumbnails/1.png" class="img-responsive">
+				</div>
+				<div class="col-xs-4">
+					<img src="{{ i.thumbnail_url }}{{ i.uri }}/thumbnails/2.png" class="img-responsive">
+				</div>
+				<div class="col-xs-4">
+					<img src="{{ i.thumbnail_url }}{{ i.uri }}/thumbnails/3.png" class="img-responsive">
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-xs-12">
+					<small>{{ i.src }}</small>
+					<small>{{ i.src_time }}</small>
+				</div>
+			</div>
+		</div>
+	</div>
+</a>

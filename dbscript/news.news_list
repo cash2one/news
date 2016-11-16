@@ -1,0 +1,10 @@
+CREATE TABLE `news_list` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `title` varchar(2000) DEFAULT NULL COMMENT '新闻标题',
+  `uri` varchar(128) DEFAULT NULL COMMENT '本地资源uri',
+  `src_time` varchar(32) DEFAULT NULL COMMENT '新闻生成时间',
+  `src` varchar(32) DEFAULT NULL COMMENT '新闻出处',
+  `source_info` varchar(32) DEFAULT NULL COMMENT '新闻资源信息：包含资源类型，资源数量',
+  `insert_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '插入时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=924 DEFAULT CHARSET=utf8 ROW_FORMAT=COMPACT;

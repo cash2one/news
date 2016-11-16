@@ -1,0 +1,35 @@
+<!-- 
+
+	@Author: huangnan
+	@Date:   2016-11-08 18:27:26
+	@Last Modified by:   huangnan
+	@Last Modified time: 2016-11-10 14:23:14
+	@E-mail: foxstarx@gmail.com 
+
+-->
+
+
+
+{% extends "base.html" %}
+{% load cms_tags %}
+
+{% block title %}{% page_attribute "page_title" %}{% endblock title %}
+
+{% block content %}
+
+<h3>{{ news.title }}</h3>
+<p><small>{{ news.src_time }} {{ news.src }}</small></p>
+
+{% for i in html %}
+<p>
+	{% if i.type == 'img' %}
+		<img src="{{i.content}}" class="img-responsive center-block">
+	{% elif i.type == 'text' %}
+		{{ i.content }}
+	{% elif i.type == 'strong' %}
+		<strong>{{ i.content }}</strong>
+	{% endif %}
+</p>
+{% endfor %}
+
+{% endblock content %}

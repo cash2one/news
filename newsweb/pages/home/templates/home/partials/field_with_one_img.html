@@ -1,0 +1,26 @@
+<!-- 
+
+	@Author: huangnan
+	@Date:   2016-10-19 12:03:12
+	@Last Modified by:   huangnan
+	@Last Modified time: 2016-11-08 16:08:43
+	@E-mail: foxstarx@gmail.com 
+
+-->
+
+<a class="list-group-item" href="detail/{{ i.uri }}">
+	<div class="panel panel-default">
+	    <div class="panel-body">
+			<div class="row">
+				<div class="col-xs-8">
+					<h4>{{ i.title }}</h4>
+					<small>{{ i.src }}</small>
+					<small>{{ i.src_time }}</small>
+				</div>
+				<div class="col-xs-4">
+					<a href="#" class="thumbnail"><img src="{{ i.thumbnail_url }}{{ i.uri }}/thumbnails/1.png" class="img-responsive"></a>
+				</div>
+			</div>
+		</div>
+	</div>
+</a>
