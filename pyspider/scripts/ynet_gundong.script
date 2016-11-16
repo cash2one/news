@@ -1,0 +1,524 @@
+# @Author: huangnan
+# @Date:   2016-11-16 19:03:14
+# @Last Modified by:   huangnan
+# @Last Modified time: 2016-11-16 19:04:03
+# @E-mail: foxstarx@gmail.com
+
+
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+# Created on 2016-11-02 18:27:56
+# Project: ynet_gundong
+
+from pyspider.libs.base_handler import *
+import sys
+import json
+import urllib
+import logging
+from PIL import Image
+
+class Handler(BaseHandler):
+    headers= {'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Encoding':'gzip, deflate, sdch',
+    'Accept-Language':'zh-CN,zh;q=0.8',
+    'Cache-Control':'max-age=0',
+    'Connection':'keep-alive',
+    'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.101 Safari/537.36'}
+    
+    crawl_config = {
+        'headers' : headers,
+        'timeout' : 100
+    }
+    
+    begin_url = 'http://news.ynet.com/2.1.0/85094.html'
+    
+    def __init__(self):
+        reload(sys)
+        sys.setdefaultencoding( "utf-8" )
+        self._dict2entity = Dict2Entity()
+        
+    #TODO
+    def loggingConfig(self):
+        pass
+    
+    @every()
+    def on_start(self):
+        projectstring = {'_project_name':self.project['name'],
+                         '_status':self.project['status']}
+        
+        self.crawl(self.begin_url, callback=self.index_page, save = {'entity': json.dumps(Entity(project = projectstring), default = lambda obj:obj.__dict__)}, age=30 * 60, auto_recrawl=True, force_update=True,)
+
+        
+    def index_page(self, response):
+        #遍历处理列表数据
+        for each in response.doc('li > a').items():
+            self.crawl(each.attr.href, callback=self.detail_page, save = response.save, age = -1)
+        #列表翻页
+        for each in response.doc('.fr > a').items():
+            self.crawl(each.attr.href, callback=self.index_page, save = response.save, age = -1)
+
+    @config(priority=2)
+    def detail_page(self, response):
+        print '%s\r\n' % response.save['entity']
+        if response.save['entity']:
+            entity = json.loads(response.save['entity'], object_hook = self._dict2entity.deal)
+        if entity:
+            entity.addPage(response)
+            print json.dumps(entity, default = lambda obj:obj.__dict__, indent = 2)
+
+        if u'下一页' in response.doc('.mb28 > li > a').text():
+            print '包含下一页'
+            #请求下一页数据，并回调本方法
+            for each in response.doc('.mb28 > li > a').items():
+                if u'下一页' == each.text():
+                    self.crawl(each.attr('href'), callback = self.detail_page, save = {'entity': json.dumps(entity, default = lambda obj:obj.__dict__)}, age = -1)
+        else:
+            print '不包含下一页'
+            #设置完成标识
+            entity.setend()
+        return 
+    
+    def on_result(self, result):
+        return
+    
+import os
+import time
+
+class Dict2Entity:
+    def __init__(self):
+        self._entity = Entity()
+    
+    def deal(self, json_string):
+        result = json_string
+        print 'json_string: %s' % result
+        
+        if json_string.has_key('_name') and json_string['_name'] == 'main':
+            result = self.parseEntity(json_string)
+
+        if json_string.has_key('_name') and json_string['_name'] == 'project':
+            self._entity._project = self.parseProdect(json_string)
+            
+        if json_string.has_key('_name') and json_string['_name'] == 'res':
+            self._entity._res = self.parseRes(json_string)
+            
+        if json_string.has_key('_name') and json_string['_name'] == 'story':
+            self._entity._story = self.parseStory(json_string)
+            
+        print '\r\n'
+        return result
+            
+    def parseEntity(self, json_string):
+        self._entity._name = json_string.get('_name', '')
+        self._entity._title = json_string.get('_title', '')
+        self._entity._url = json_string.get('_url', '')
+        self._entity._time = json_string.get('_time', '')
+        self._entity._src = json_string.get('_src', '')
+        self._entity._isend = json_string.get('_isend', 0)
+        self._entity._isnew = json_string.get('_isnew', True)
+        self._entity._img_count = json_string.get('_img_count', 0)
+        print 'Dict2Entity.parseEntity.__dict: %s' % self._entity.__dict__
+        print 'Dict2Entity.parseEntity: %s' % self._entity
+        return self._entity
+    
+    def parseProdect(self, json_string):
+        result = Project(project = json_string)
+        print 'Dict2Entity.parseProdect.__dict: %s' % result.__dict__
+        print 'Dict2Entity.parseProdect: %s' % result
+        return result
+        
+    
+    def parseRes(self, json_string):
+        result = Res(res = json_string)
+        print 'Dict2Entity.parseRes.__dict: %s' % result.__dict__
+        print 'Dict2Entity.parseRes: %s' % result
+        return result
+        
+    def parseStory(self, json_string):
+        result = Story(story = json_string)
+        print 'Dict2Entity.parseStory.__dict: %s' % result.__dict__
+        print 'Dict2Entity.parseStory: %s' % result
+        return result
+    
+    def parseResItem(self, json_string):
+        pass
+
+class Entity(object):
+    
+    def __init__(self, **kwargs):
+        self._name = 'main'
+        self._db_tablename = 'news_list'
+        self._isnew = True
+        self._thumb_width = 172
+        self._thumb_height = 120
+        self._story = Story()
+        
+        if kwargs and kwargs.has_key('project'):
+            print 'Entity.__init__(project): %s' % kwargs['project']
+            self._project = Project(project = kwargs['project'])
+        else:
+            self._project = Project()
+        
+        self._res = Res()
+        self._title = ''
+        self._url = ''
+        self._time = ''
+        self._src = ''
+        self._isend = 0
+        self._img_count = 0
+        print 'Entity.__init__: %s' % self.__dict__
+        
+    def setproject(self, project):
+        if project:
+            self._project = project
+            
+    def setres(self, res):
+        if res:
+            self_res = res
+    
+    def setend(self):
+        try:
+            self._isend = 1
+            print 'Entity.setend: %s' % self._isend
+        except:
+            return False
+            
+        #保存readme信息
+        #tt = 'url:%s\r\ntitle:%s\r\ntime:%s\r\nsrc:%s\r\n' % (self._url, self._title, self._time, self._src)
+        self._story.savefile(self.geturi(), 'readme.txt', json.dumps(self, default = lambda obj:obj.__dict__, indent = 2))
+        
+        #保存抓取记录
+        sql_json = {'src': self._src, 'src_time': self._time, 'title': self._title, 'uri': self.geturi(), 'source_info': 'imgs:' + str(self.getimgscount())}
+        if self._story.savedb(self._db_tablename, sql_json):
+            return True
+        return False
+    
+    def gettaskid(self):
+        return md5string(self._url)
+    
+    def parse(self, response):
+        self._title = self.gettitle(response)
+        self._url = self.geturl(response)
+        self._time = self.gettime(response)
+        self._src = self.getsrc(response)
+        self._isnew = False
+        return
+        
+    def getpagescount(self):
+        return self._res.getpagecount()
+    
+    def getimgscount(self):
+        result = 0
+        for page in self._res._content:
+            result += len(self._res._content[page]._img._content)
+        return result
+    
+    def gettitle(self, response):
+        result = response.doc('.articleTitle > h2').text()
+        return result
+    
+    def geturl(self, response):
+        result = response.url
+        return result
+    
+    def gettime(self, response):
+        result = response.doc('.yearMsg').text()
+        return result
+    
+    def getsrc(self, response):
+        result = response.doc('.sourceMsg').text()
+        return result
+    
+    def geturi(self):
+        result = self._project.geturi() + time.strftime('%Y-%m-%d',time.localtime(time.time())) + "/" + self.gettaskid() + '/'
+        return result
+        
+    def addPage(self, response):
+        if self._isnew:
+            self.parse(response)
+        
+        #当前资源指针
+        cur_res = self._res.additem(response)
+        
+        #保存content静态资源
+        for item in cur_res._content._content:
+            self._story.savefile(self.geturi() + str(self.getpagescount()) + '/content/', str(item) + '.txt', cur_res._content._content[item]._text)
+            
+        #保存html静态资源
+        for item in cur_res._html._content:
+            self._story.savefile(self.geturi() + str(self.getpagescount()) + '/html/', str(item) + '.txt', cur_res._html._content[item]._html)
+            
+        #保存img静态资源
+        for item in cur_res._img._content:
+            print '12312412312512431  %s' % item
+            filepath = self._story.savefile(self.geturi() + str(self.getpagescount()) + '/img/', str(item) + '.png', urllib.urlopen(cur_res._img._content[item]._url).read())
+            self._img_count += 1
+            print 'self._img_count = %s' % str(self._img_count)
+            #保存缩略图
+            self._story.mkdir(self._story._path + self.geturi() + 'thumbnails/')
+            self.getthumbnails(filepath, self._story._path + self.geturi() + 'thumbnails/' + str(self._img_count) + '.png')
+            
+        return
+    
+    def getthumbnails(self, src_filename, dest_filename):
+        print 'Entity.getthumbnails.src_filename:%s\r\nEntity.getthumbnails.dest_filename:%s' % (src_filename, dest_filename)
+        im = Image.open(src_filename)
+        out = im.resize((self._thumb_width, self._thumb_height))
+        out.save(dest_filename)
+    
+    def tostring(self):
+        return self.__dict__
+    
+class Project(object):
+    
+    def __init__(self, **kwargs):
+        self._name = 'project'
+        self._status = ''
+        self._project_name = ''
+        
+        if kwargs and kwargs['project']:
+            self._status = kwargs['project'].get('_status', '')
+        if kwargs and kwargs['project']:
+            self._project_name = kwargs['project'].get('_project_name', '')
+            
+    def geturi(self):
+        return self._project_name + '/' + self._status + '/'
+            
+    def tostring(self):
+        return self.__dict__
+    
+class Res(object):
+    
+    def __init__(self, **kwargs):
+        self._name = 'res'
+        self._content = {}
+        
+        if kwargs and kwargs['res'] and kwargs['res'].has_key('_content'):
+            #while True:
+            #    item = kwargs['res'].get(pagenumber, False)
+            #    if not item:
+            #        break
+            for item in kwargs['res'].get('_content', {}):
+                print 'Res.__init__.receive object: %s' % kwargs['res']['_content'][item]
+                self._content[item] = ResItem(resitem = kwargs['res']['_content'][item])
+                
+    def additem(self, response):
+        result = ResItem().parse(response, pagenumber = self.getpagecount() + 1)
+        self._content[self.getpagecount() + 1] = result
+        return result
+    
+    def getpagecount(self):
+        return len(self._content)
+    
+    def save(self):
+        print 'Res.save()...'
+        self.content.save()
+        self.html.save()
+        save.img.save()
+        
+        return
+    
+    def tostring(self):
+        return self.__dict__
+    
+class ResItem(object):
+    
+    def __init__(self, **kwargs):
+        self._name = 'resitem'
+        self._pagenumber = 0
+        self._content = Content()
+        self._html = Html()
+        self._img = Img()
+        
+        #反序列化参数
+        if kwargs and kwargs['resitem']:
+            self._content = Content(content = kwargs['resitem'].get('_content', ''))
+            self._html = Html(html = kwargs['resitem'].get('_html', ''))
+            self._img = Img(img = kwargs['resitem'].get('_img', ''))
+            
+    def getimgcount(self):
+        return len(self._img)
+            
+    def parse(self, response, pagenumber):
+        self._pagenumber = pagenumber
+        #如果有头部图片，先添加头部图片的content和html
+        for each in response.doc('.scrollCon img').items():
+            self._content.addcontent(each.text())
+            self._html.addhtml(str(each))
+        #循环添加ContentItem和HtmlItem对象
+        for each in response.doc('.cfix > p').items():
+            self._content.addcontent(each.text())
+            self._html.addhtml(each.html())
+
+        #循环添加ImgItem对象
+        #添加头部图片
+        for each in response.doc('.scrollCon img').items():
+            self._img.addimg(each.attr('src'))
+        #添加剩余图片
+        for each in response.doc('p > img').items():
+            self._img.addimg(each.attr('src'))
+        return self
+    
+class Content(object):
+    
+    def __init__(self, **kwargs):
+        self._name = 'content'
+        self._content = {}
+        
+        if kwargs and kwargs['content']:
+            self._content = kwargs['content'].get('_content', {})
+    
+    def addcontent(self, text):
+        self._content[self.getcontentcount() + 1] = ContentItem().parse(text, self.getcontentcount() + 1)
+    
+    def getcontentcount(self):
+        return len(self._content)
+    
+    def save(self):
+        print 'Content.save()...'
+        return
+    
+class ContentItem(object):
+    
+    def __init__(self, **kwargs):
+        self._name = 'contentitem'
+        self._idx = 0
+        self._text = ''
+        
+    def parse(self, text, idx):
+        self._idx = idx
+        self._text = text
+        return self
+    
+class Html(object):
+    
+    def __init__(self, **kwargs):
+        self._name = 'html'
+        self._content = {}
+        
+        if kwargs and kwargs['html']:
+            self._content = kwargs['html'].get('_content', {})
+            
+    def addhtml(self, html):
+        self._content[self.gethtmlcount() + 1] = HtmlItem().parse(html, self.gethtmlcount() + 1)
+            
+    def gethtmlcount(self):
+        return len(self._content)
+    
+    def save(self):
+        print 'Html.save()...'
+        return
+
+class HtmlItem(object):
+    
+    def __init__(self, **kwargs):
+        self._name = 'htmlitem'
+        self._idx = 0
+        self._html = ''
+    
+    def parse(self, html, idx):
+        self._idx = idx
+        self._html = html
+        return self
+    
+class ImgItem(object):
+    
+    def __init__(self, **kwargs):
+        self._name = 'imgitem'
+        self._idx = 0
+        self._url = ''
+        
+    def parse(self, url, idx):
+        self._idx = idx
+        self._url = url
+        return self
+    
+    def save(self):
+        print 'Img.save()...'
+        return
+    
+class Img(object):
+    def __init__(self, **kwargs):
+        self._name = 'img'
+        self._content = {}
+        
+        if kwargs and kwargs['img']:
+            self._content = kwargs['img'].get('_content', {})
+    
+    def addimg(self, url):
+        self._content[self.getimgcount() + 1] = ImgItem().parse(url, idx = self.getimgcount() + 1)
+        
+    def getimgcount(self):
+        return len(self._content)
+
+import traceback
+from pyspider.database.mysql.mysqldb import ToMysql
+
+class ConnectString():
+    def __init__(self, **kwargs):
+        self._name = 'connstring'
+        
+        self.host = '127.0.0.1'
+        self.user = 'root'
+        self.passwd = 'hn811013'
+        self.db = 'news'
+        self.charset = 'utf8'
+        
+        if kwargs.has_key('host'):
+            self.host = kwargs.get('host', self.host)
+            
+        if kwargs.has_key('user'):
+            self.host = kwargs.get('user', self.user)
+            
+        if kwargs.has_key('passwd'):
+            self.host = kwargs.get('passwd', self.passwd)
+            
+        if kwargs.has_key('db'):
+            self.host = kwargs.get('db', self.db)
+            
+        if kwargs.has_key('charset'):
+            self.host = kwargs.get('charset', self.charset)
+            
+    def tostring(self):
+        return self.__dict__
+    
+class Story(object):
+    _path = './result/'
+    _db_connstring = {}
+    _content_path = ''
+    _log_path = ''
+    
+    def __init__(self, **kwargs):
+        self._name = 'story'
+        self._content_path = self._path + 'content/'
+        self._log_path = self._path + 'log/'
+        self._db_connstring = {"host": "127.0.0.1", "user": "root", "passwd": "hn811013", "db": "news", "charset": "utf8"}
+        
+        if kwargs.has_key('story'):
+            self._content_path = kwargs['story'].get('contentpath', self._content_path)
+        if kwargs.has_key('story'):
+            self._log_path = kwargs['story'].get('logpath', self._log_path)
+        if kwargs.has_key('story'):
+            self._db_connstring = kwargs['story'].get('db_connectstring', self._db_connstring)
+            
+    def savedb(self, tablename, value):
+        db = ToMysql(self._db_connstring)
+        db.into(tablename, **value)
+    
+    def savefile(self, path, filename, content):
+        self.mkdir(self._path + path)
+        
+        f = open(self._path + path + filename, 'w')
+        f.write(content)
+        f.close()
+        print 'Story.savefile.fullpath: %s' % self._path + path + filename
+        print 'Story.savefile.content: %s' % content
+        return self._path + path + filename
+    
+    def mkdir(self, path):
+        dir_path = path.strip()
+        exists = os.path.exists(dir_path)
+        if not exists:
+            os.makedirs(dir_path)
+            return dir_path
+        else:
+            return dir_path
