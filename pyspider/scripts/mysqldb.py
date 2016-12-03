@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: huangnan
 # @Date:   2016-10-30 13:08:26
-# @Last Modified by:   huangnan
-# @Last Modified time: 2016-10-30 21:25:07
+# @Last Modified by:   HUANG NAN
+# @Last Modified time: 2016-11-17 01:28:20
 # @E-mail: foxstarx@gmail.com
 
 
@@ -34,11 +34,12 @@ class ToMysql():
         username = kwargs['user']  
         password = kwargs['passwd']  
         database = kwargs['db']  
-        charsets = kwargs['charset']  
+        charsets = kwargs['charset'] 
+        port = kwargs.has_key('port') and int(kwargs['port']) or 3306
           
         self.connection = False 
         try:  
-            self.conn = MySQLdb.connect(host = hosts,user = username,passwd = password,db = database,charset = charsets)  
+            self.conn = MySQLdb.connect(host = hosts,user = username,passwd = password,db = database,charset = charsets, port = port)  
             self.cursor = self.conn.cursor()  
             self.cursor.execute("set names "+charsets)  
             self.connection = True  
