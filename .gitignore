@@ -1,2 +1,5 @@
 pyspider/config.json
 pyspider/data/
+pyspider/result/
+.vscode/
+*.pyc
